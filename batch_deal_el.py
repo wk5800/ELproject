@@ -31,6 +31,28 @@ import numpy as np
 constract_path = 'D:/Documents/Desktop/test/3/'  # EL调整对比度后存放路径
 Rectangle_path = 'D:/Documents/Desktop/test/4/'  # EL画出边缘轮廓后存放路径
 
+# 边角发黑面积判断函数
+def bianjiaofahei(need_deal_path, count):
+    path_file = need_deal_path
+    grey = cv2.imdecode(np.fromfile(path_file, dtype=np.uint8), 0)  # 灰度
+    retval, grey = cv2.threshold(grey, 100, 255, cv2.THRESH_BINARY)  # 二值化处理，低于阈值的像素点灰度值置为0黑；高于阈值的值置为255白（参数3）
+    # 闭运算：先膨胀后腐蚀
+    #transformed_image = transform_form(thresh, 'closing')
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (50, 50))
+    closed = cv2.morphologyEx(grey, cv2.MORPH_CLOSE, kernel)
+    closed = cv2.dilate(closed, None, iterations=1)  # 膨胀 白色多黑色少
+    grey = cv2.erode(closed, None, iterations=1)  # 腐蚀 黑色多白色少
+
+    # 求面积
+    width = grey.shape[0]
+    height = grey.shape[1]
+    for x in range(width):
+        for y in range(height):
+            if grey[x - 1, y - 1] == 255:
+                count = count + 1
+    print(count)  # 求出白色的像素点数
+    return count # 返回EL图片像素面积
+
 # 批处理流程写为主方法函数，并引入threading线程模块，对不同路径下的待处理图片作多线程计算。
 def main(need_deal_path):
     """
@@ -88,6 +110,17 @@ def main(need_deal_path):
 
             shutil.copyfile(need_deal_el, new_need_deal_el)
             print('%s处理完成!' % number_id)
+            
+            # 算法3 判断边角发黑 #执行边角发黑判断函数
+            count1 = 0
+            count2 = 0
+            #标准像素面积
+            count1 = bianjiaofahei(need_deal_path, count1)# 正常标准EL图片的像素面积，need_deal_path为正常标准EL图片路径
+            #当前输入硅片图
+            count2 = bianjiaofahei(need_deal_path, count2)# 当前EL图片的像素面积，need_deal_path为当前EL图片路径
+            #比较面积
+            if count2 < count1:
+                print("边角发黑")
         else:
             continue
 
