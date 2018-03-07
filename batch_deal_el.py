@@ -24,34 +24,12 @@ from adjust_light_contrast import light_contrast_coef, adjust_image_info
 from draw_rectangle import draw_rectangle
 from feature_extraction import *
 import threading
-import datetime, madian
+import datetime, madian, bianjiaofahei
 import numpy as np
-
 
 constract_path = 'D:/Documents/Desktop/test/3/'  # EL调整对比度后存放路径
 Rectangle_path = 'D:/Documents/Desktop/test/4/'  # EL画出边缘轮廓后存放路径
 
-# 边角发黑面积判断函数
-def bianjiaofahei(need_deal_path, count):
-    path_file = need_deal_path
-    grey = cv2.imdecode(np.fromfile(path_file, dtype=np.uint8), 0)  # 灰度
-    retval, grey = cv2.threshold(grey, 100, 255, cv2.THRESH_BINARY)  # 二值化处理，低于阈值的像素点灰度值置为0黑；高于阈值的值置为255白（参数3）
-    # 闭运算：先膨胀后腐蚀
-    #transformed_image = transform_form(thresh, 'closing')
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (50, 50))
-    closed = cv2.morphologyEx(grey, cv2.MORPH_CLOSE, kernel)
-    closed = cv2.dilate(closed, None, iterations=1)  # 膨胀 白色多黑色少
-    grey = cv2.erode(closed, None, iterations=1)  # 腐蚀 黑色多白色少
-
-    # 求面积
-    width = grey.shape[0]
-    height = grey.shape[1]
-    for x in range(width):
-        for y in range(height):
-            if grey[x - 1, y - 1] == 255:
-                count = count + 1
-    print(count)  # 求出白色的像素点数
-    return count # 返回EL图片像素面积
 
 # 批处理流程写为主方法函数，并引入threading线程模块，对不同路径下的待处理图片作多线程计算。
 def main(need_deal_path):
@@ -99,30 +77,24 @@ def main(need_deal_path):
             # 算法2 提取麻点故障
             second_contours = madian.madian(need_deal_el)
 
-            over_picture_path = constract_path + '%s_Constract.jpg' % number_id  # 改变亮度、对比度后的图片image1
+            # 算法3
+            standard_area = 874891  # 正常标准EL图片的像素面积
+            el_area = bianjiaofahei.bianjiaofahei(need_deal_el)  # 当前EL图片的像素面积，need_deal_path为当前EL图片路径
+            if el_area < standard_area:  # 比较面积
+                print("边角发黑")
 
+
+
+
+            over_picture_path = constract_path + '%s_Constract.jpg' % number_id  # 改变亮度、对比度后的图片image1
             # 疑问：是在对比度/亮度处理前的图片上显示故障特征还是在对比度处理后的图片image1上显示故障特征？
             bounding_show(first_contours, second_contours, need_deal_el, number_id)  # 在image1 中展示故障特征
             save_bounding_picture(first_contours, second_contours, need_deal_el, number_id, constract_el_path,
                                   rectangle_el_path)  # 根据轮廓，提取故障特征保存在本地
-            # cv2.imwrite('F://2017//12//ELTD//Original//%s' % number_id, panduan_image,[int(cv2.IMWRITE_JPEG_QUALITY), 100])
             new_need_deal_el = need_deal_el.replace(need_deal_el.split('//')[4], 'Original')
 
             shutil.copyfile(need_deal_el, new_need_deal_el)
             print('%s处理完成!' % number_id)
-            
-            # 算法3 判断边角发黑 #执行边角发黑判断函数
-            count1 = 0
-            count2 = 0
-            #标准像素面积
-            count1 = bianjiaofahei(need_deal_path, count1)# 正常标准EL图片的像素面积，need_deal_path为正常标准EL图片路径
-            #当前输入硅片图
-            count2 = bianjiaofahei(need_deal_path, count2)# 当前EL图片的像素面积，need_deal_path为当前EL图片路径
-            #比较面积
-            if count2 < count1:
-                print("边角发黑")
-        else:
-            continue
 
 
 if __name__ == '__main__':
@@ -150,6 +122,6 @@ if __name__ == '__main__':
         t.start()
     for t in threads:
         t.join()
-    endtime = datetime.datetime.now() # 程序结束时间
+    endtime = datetime.datetime.now()  # 程序结束时间
     runtime = (endtime - starttime).seconds
-    print('一共运行：%s s' %runtime )
+    print('一共运行：%s s' % runtime)
